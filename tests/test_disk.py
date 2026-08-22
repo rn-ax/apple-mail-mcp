@@ -17,6 +17,7 @@ from apple_mail_mcp.index.disk import (
     get_attachment_content,
     get_email_links,
     parse_emlx,
+    scan_emlx_files,
 )
 
 
@@ -374,6 +375,94 @@ class TestScanExcludesDrafts:
         # With empty exclusion set
         files = list(scan_emlx_files(mail_dir, exclude_mailboxes=set()))
         assert len(files) == 2
+
+
+class TestScanIncludesMailboxes:
+    """Mailbox allowlists limit which local messages enter the index."""
+
+    def _create_message(
+        self, mail_dir: Path, mailbox: str, message_id: int
+    ) -> Path:
+        messages = (
+            mail_dir
+            / "example-account"
+            / f"{mailbox}.mbox"
+            / "Data"
+            / "Messages"
+        )
+        messages.mkdir(parents=True, exist_ok=True)
+        path = messages / f"{message_id}.emlx"
+        path.write_bytes(b"synthetic")
+        return path
+
+    def test_scan_includes_exact_mailbox_case_insensitively(
+        self, tmp_path: Path
+    ):
+        mail_dir = tmp_path / "V10"
+        included = self._create_message(mail_dir, "Example Inbox", 1)
+        self._create_message(mail_dir, "Example Other", 2)
+
+        files = list(
+            scan_emlx_files(
+                mail_dir,
+                exclude_mailboxes=set(),
+                include_mailboxes={"example inbox"},
+            )
+        )
+
+        assert files == [included]
+
+    def test_scan_empty_allowlist_is_fail_closed(self, tmp_path: Path):
+        mail_dir = tmp_path / "V10"
+        self._create_message(mail_dir, "Example Inbox", 1)
+
+        files = list(
+            scan_emlx_files(
+                mail_dir,
+                exclude_mailboxes=set(),
+                include_mailboxes=set(),
+            )
+        )
+
+        assert files == []
+
+    def test_scan_matches_nested_mailbox_path(self, tmp_path: Path):
+        mail_dir = tmp_path / "V10"
+        messages = (
+            mail_dir
+            / "example-account"
+            / "Example Parent"
+            / "Example Archive.mbox"
+            / "Data"
+            / "Messages"
+        )
+        messages.mkdir(parents=True)
+        included = messages / "1.emlx"
+        included.write_bytes(b"synthetic")
+
+        files = list(
+            scan_emlx_files(
+                mail_dir,
+                exclude_mailboxes=set(),
+                include_mailboxes={"Example Parent/Example Archive"},
+            )
+        )
+
+        assert files == [included]
+
+    def test_exclusion_wins_over_inclusion(self, tmp_path: Path):
+        mail_dir = tmp_path / "V10"
+        self._create_message(mail_dir, "Example Restricted", 1)
+
+        files = list(
+            scan_emlx_files(
+                mail_dir,
+                exclude_mailboxes={"Example Restricted"},
+                include_mailboxes={"Example Restricted"},
+            )
+        )
+
+        assert files == []
 
 
 class TestExtractAttachments:

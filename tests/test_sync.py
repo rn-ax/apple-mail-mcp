@@ -230,6 +230,47 @@ class TestSyncFromDisk:
         cursor = sync_db.execute("SELECT COUNT(*) FROM emails")
         assert cursor.fetchone()[0] == 0
 
+    def test_sync_reconciles_to_mailbox_allowlist(
+        self,
+        sync_db: sqlite3.Connection,
+        mail_dir: Path,
+        monkeypatch,
+    ):
+        included_path = self._create_emlx(
+            mail_dir, "example-account", "Example Included", 1001
+        )
+        restricted_path = self._create_emlx(
+            mail_dir, "example-account", "Example Restricted", 1002
+        )
+        sync_db.execute(
+            """INSERT INTO emails
+               (message_id, account, mailbox, subject, emlx_path)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                1002,
+                "example-account",
+                "Example Restricted",
+                "Synthetic subject",
+                str(restricted_path),
+            ),
+        )
+        sync_db.commit()
+        monkeypatch.setenv(
+            "APPLE_MAIL_INDEX_INCLUDE_MAILBOXES", "Example Included"
+        )
+
+        result = sync_from_disk(sync_db, mail_dir)
+
+        assert result.added == 1
+        assert result.deleted == 1
+        row = sync_db.execute(
+            "SELECT message_id, mailbox, emlx_path FROM emails"
+        ).fetchone()
+        assert row is not None
+        assert row["message_id"] == 1001
+        assert row["mailbox"] == "Example Included"
+        assert row["emlx_path"] == str(included_path)
+
     def test_sync_detects_moved_emails(
         self, sync_db: sqlite3.Connection, mail_dir: Path
     ):
