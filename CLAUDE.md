@@ -4,6 +4,18 @@
 
 The only Apple Mail MCP server with full-coverage FTS5 body search. Reliable on large mailboxes (tested at ~73K messages) where AppleScript-based servers timeout, and the only one whose body search has no recency cap. Disk-first email reads (~3ms via .emlx parsing), batch JXA property fetching, and an FTS5 search index for full-text body search (~28ms).
 
+## Fork Purpose and Public Repository Boundary
+
+This public fork adds narrowly scoped privacy and least-privilege hardening for reading sensitive local Apple Mail data. Keep behavior and structure close to upstream so the fork can adopt upstream changes with minimal conflict.
+
+- Treat the complete repository and its Git history as public. Never add private, sensitive, confidential, or identifying information to source code, documentation, tests, fixtures, snapshots, examples, branch names, commit messages, pull requests, issues, release notes, logs, or generated artifacts.
+- Never copy real email content or metadata into the repository. This includes message bodies, subjects, sender or recipient details, attachments, account and mailbox names, local Mail databases or indexes, filesystem paths containing usernames, company-specific domains or identifiers, credentials, tokens, hostnames, and incident data.
+- Use minimal synthetic fixtures and clearly fictional values such as `person@example.test`, `Example Mailbox`, and `/Users/example/...`. Before publishing, inspect the complete diff and staged files for information copied from local Mail, terminals, logs, or private systems.
+- If sensitive information appears in a working change, stop and replace it with synthetic data before committing. If it has already been published, treat removal from the latest revision as insufficient because Git history remains public, and escalate for history cleanup and credential or secret rotation as applicable.
+- Prefer the smallest isolated change that satisfies a fork requirement. Avoid unrelated refactoring, formatting churn, API changes, dependency changes, or reorganizing upstream code.
+- Keep fork-specific behavior in focused modules, wrappers, configuration, and tests where practical. Preserve upstream interfaces and defaults unless the privacy boundary requires a deliberate divergence, and document each such divergence close to its enforcement point.
+- Separate independent hardening concerns into reviewable changes so they can be rebased, revised, or dropped individually when upstream evolves.
+
 ## Project Structure
 
 ```
