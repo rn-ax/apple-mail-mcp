@@ -511,6 +511,7 @@ start rather than silently using degraded config.
 | `APPLE_MAIL_INDEX_MAX_EMAILS` | `[index] max_emails` | _unset_ | Optional per-mailbox ceiling (default: uncapped) |
 | `APPLE_MAIL_INDEX_STALENESS_HOURS` | `[index] staleness_hours` | `24` | Hours before refresh |
 | `APPLE_MAIL_INDEX_EXCLUDE_MAILBOXES` | `[index] exclude_mailboxes` | `["Drafts"]` | Mailboxes to skip during indexing |
+| `APPLE_MAIL_INDEX_INCLUDE_MAILBOXES` | `[index] include_mailboxes` | _unset_ | Exact mailbox paths eligible for indexing; an empty value indexes nothing |
 | `APPLE_MAIL_INDEX_EXCLUDE_ACCOUNTS` | `[index] exclude_accounts` | _unset_ | Accounts (by display name, exact/case-sensitive) hidden from the whole server: never indexed, filtered from search, invisible to list/get tools (#90) |
 | `APPLE_MAIL_READ_ONLY` | `[server] read_only` | `false` | Disable write operations (enforced via `_ensure_writable()` in `server.py`, #80) |
 | `APPLE_MAIL_LOCK_RETRY_SECONDS` | `[server] lock_retry_seconds` | `180` | How often an index-passive server retries the index writer lock (min 1, #106) |
@@ -528,6 +529,8 @@ mail mutations.
 **Empty list semantics**: `exclude_mailboxes = []` in TOML (or empty
 string in env) explicitly means "no exclusions" — different from
 omitting the key, which uses the `["Drafts"]` default.
+
+For `include_mailboxes`, omission means every mailbox remains eligible. An explicit empty list or empty environment value is fail-closed and indexes nothing. When both include and exclude rules match, exclusion wins.
 
 ## Benchmarks
 

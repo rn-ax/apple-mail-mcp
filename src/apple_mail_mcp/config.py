@@ -271,6 +271,25 @@ def get_index_exclude_mailboxes() -> set[str]:
     return {"Drafts"}
 
 
+def get_index_include_mailboxes() -> set[str] | None:
+    """Get the mailbox allowlist for indexing.
+
+    Resolution: ``APPLE_MAIL_INDEX_INCLUDE_MAILBOXES`` env (CSV), then
+    ``[index] include_mailboxes`` in ``config.toml``, then ``None`` (all
+    mailboxes are eligible). An explicitly configured empty value means
+    no mailboxes are eligible, keeping allowlist configuration fail-closed.
+    """
+    env = os.environ.get("APPLE_MAIL_INDEX_INCLUDE_MAILBOXES")
+    if env is not None:
+        return {
+            mailbox.strip() for mailbox in env.split(",") if mailbox.strip()
+        }
+    val = _from_toml("index", "include_mailboxes")
+    if val is not None:
+        return {mailbox for mailbox in val if mailbox}
+    return None
+
+
 def get_index_exclude_accounts() -> set[str]:
     """
     Get accounts to exclude entirely from the server.
@@ -412,6 +431,11 @@ config_version = 1
 # Empty list ([]) explicitly disables all exclusions.
 # Env: APPLE_MAIL_INDEX_EXCLUDE_MAILBOXES (comma-separated)
 # exclude_mailboxes = ["Drafts"]
+
+# Only index these exact mailbox paths (case-insensitive). When configured,
+# every other mailbox is skipped. An empty list indexes nothing.
+# Env: APPLE_MAIL_INDEX_INCLUDE_MAILBOXES (comma-separated)
+# include_mailboxes = ["Example Inbox", "Example Archive"]
 
 # Accounts to hide entirely (by display name, exact/case-sensitive).
 # Excluded accounts are never indexed, never searched, and invisible

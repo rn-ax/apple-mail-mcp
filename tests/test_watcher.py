@@ -42,6 +42,7 @@ class TestProcessPendingResilience:
         watcher.on_update = None
         watcher.debounce_ms = 500
         watcher._exclude_account_uuids = set()
+        watcher._include_mailbox_keys = None
         return watcher
 
     @patch("apple_mail_mcp.index.watcher.parse_emlx")
@@ -222,6 +223,32 @@ class TestPathParsing:
         assert m is not None
 
 
+class TestMailboxAllowlist:
+    def test_matching_is_case_insensitive(self, tmp_path: Path):
+        watcher = IndexWatcher(
+            tmp_path / "index.db",
+            include_mailboxes={"Example Inbox"},
+        )
+
+        assert watcher._mailbox_is_included("example inbox") is True
+
+    def test_other_mailbox_is_restricted(self, tmp_path: Path):
+        watcher = IndexWatcher(
+            tmp_path / "index.db",
+            include_mailboxes={"Example Inbox"},
+        )
+
+        assert watcher._mailbox_is_included("Example Restricted") is False
+
+    def test_empty_allowlist_is_fail_closed(self, tmp_path: Path):
+        watcher = IndexWatcher(
+            tmp_path / "index.db",
+            include_mailboxes=set(),
+        )
+
+        assert watcher._mailbox_is_included("Example Inbox") is False
+
+
 class TestPendingLimits:
     """Watcher should enforce memory safety limits."""
 
@@ -240,6 +267,7 @@ class TestPendingLimits:
         watcher.on_update = None
         watcher.debounce_ms = 500
         watcher._exclude_account_uuids = set()
+        watcher._include_mailbox_keys = None
         return watcher
 
     def test_pending_adds_are_bounded(self, watcher_db):

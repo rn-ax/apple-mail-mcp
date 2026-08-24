@@ -16,6 +16,7 @@ from apple_mail_mcp.config import (
     get_default_account,
     get_default_mailbox,
     get_index_exclude_mailboxes,
+    get_index_include_mailboxes,
     get_index_max_emails,
     get_index_path,
     get_index_staleness_hours,
@@ -74,6 +75,9 @@ class TestNoFile:
 
     def test_index_exclude_mailboxes(self, config_file):
         assert get_index_exclude_mailboxes() == {"Drafts"}
+
+    def test_index_include_mailboxes(self, config_file):
+        assert get_index_include_mailboxes() is None
 
     def test_index_staleness_hours(self, config_file):
         assert get_index_staleness_hours() == 24.0
@@ -155,6 +159,31 @@ exclude_mailboxes = []
         )
         assert get_index_exclude_mailboxes() == set()
 
+    def test_include_mailboxes(self, config_file):
+        _write(
+            config_file,
+            f"""
+config_version = {CONFIG_SCHEMA_VERSION}
+[index]
+include_mailboxes = ["Example Inbox", "Example Archive"]
+""",
+        )
+        assert get_index_include_mailboxes() == {
+            "Example Inbox",
+            "Example Archive",
+        }
+
+    def test_include_mailboxes_empty_list_is_fail_closed(self, config_file):
+        _write(
+            config_file,
+            f"""
+config_version = {CONFIG_SCHEMA_VERSION}
+[index]
+include_mailboxes = []
+""",
+        )
+        assert get_index_include_mailboxes() == set()
+
     def test_exclude_mailboxes_omitted_uses_default(self, config_file):
         """Omitting the key falls back to the {'Drafts'} default."""
         _write(
@@ -233,6 +262,30 @@ exclude_mailboxes = ["FileOne", "FileTwo"]
             "APPLE_MAIL_INDEX_EXCLUDE_MAILBOXES", "EnvOne,EnvTwo"
         )
         assert get_index_exclude_mailboxes() == {"EnvOne", "EnvTwo"}
+
+    def test_include_mailboxes(self, config_file, monkeypatch):
+        _write(
+            config_file,
+            f"""
+config_version = {CONFIG_SCHEMA_VERSION}
+[index]
+include_mailboxes = ["Example File Mailbox"]
+""",
+        )
+        monkeypatch.setenv(
+            "APPLE_MAIL_INDEX_INCLUDE_MAILBOXES",
+            "Example Env Inbox, Example Env Sent",
+        )
+        assert get_index_include_mailboxes() == {
+            "Example Env Inbox",
+            "Example Env Sent",
+        }
+
+    def test_include_mailboxes_empty_env_is_fail_closed(
+        self, config_file, monkeypatch
+    ):
+        monkeypatch.setenv("APPLE_MAIL_INDEX_INCLUDE_MAILBOXES", "")
+        assert get_index_include_mailboxes() == set()
 
     def test_env_empty_string_means_explicit_empty(
         self, config_file, monkeypatch

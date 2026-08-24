@@ -67,6 +67,7 @@ class IndexWatcher:
         on_update: Callable[[int, int], None] | None = None,
         debounce_ms: int = 500,
         exclude_account_uuids: set[str] | None = None,
+        include_mailboxes: set[str] | None = None,
     ):
         """
         Initialize the watcher.
@@ -79,11 +80,23 @@ class IndexWatcher:
                 not be indexed. Paths carry the account UUID directly
                 (see `_parse_path`), so no JXA is needed in the watcher
                 thread. None/empty = index everything.
+            include_mailboxes: Exact mailbox paths eligible for indexing,
+                matched case-insensitively. None loads the configured value;
+                an empty set indexes nothing.
         """
         self.db_path = db_path
         self.on_update = on_update
         self.debounce_ms = debounce_ms
         self._exclude_account_uuids = exclude_account_uuids or set()
+        if include_mailboxes is None:
+            from ..config import get_index_include_mailboxes
+
+            include_mailboxes = get_index_include_mailboxes()
+        self._include_mailbox_keys = (
+            None
+            if include_mailboxes is None
+            else {mailbox.casefold() for mailbox in include_mailboxes}
+        )
 
         self._mail_dir: Path | None = None
         self._stop_event = threading.Event()
@@ -196,6 +209,8 @@ class IndexWatcher:
                     continue
 
                 account, mailbox, message_id = parsed
+                if not self._mailbox_is_included(mailbox):
+                    continue
                 key = (account, mailbox, message_id)
 
                 with self._pending_lock:
@@ -248,6 +263,13 @@ class IndexWatcher:
 
         return account_name, mailbox_name, message_id
 
+    def _mailbox_is_included(self, mailbox: str) -> bool:
+        """Return whether a mailbox is eligible for indexing."""
+        return (
+            self._include_mailbox_keys is None
+            or mailbox.casefold() in self._include_mailbox_keys
+        )
+
     def _process_pending(self) -> None:
         """Process pending adds and deletes."""
         with self._pending_lock:
@@ -299,6 +321,8 @@ class IndexWatcher:
                 # Excluded accounts must never enter the index, even
                 # via the live watcher.
                 if account in self._exclude_account_uuids:
+                    continue
+                if not self._mailbox_is_included(mailbox):
                     continue
                 email = None
                 last_error: BaseException | None = None
